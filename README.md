@@ -1,5 +1,9 @@
 # 程序管家 · pakmanager
 
+[![CI](https://github.com/877007021/pakmanager/actions/workflows/ci.yml/badge.svg)](https://github.com/877007021/pakmanager/actions/workflows/ci.yml)
+[![Release](https://github.com/877007021/pakmanager/actions/workflows/release.yml/badge.svg)](https://github.com/877007021/pakmanager/actions/workflows/release.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
 Linux 上的「已安装程序管理器」：**把已安装的东西列清楚，看清楚它占多大、什么时候装的、谁在依赖它，然后安全地卸载。**
 
 Rust + GTK4 / libadwaita 原生应用，直接读 `dpkg` 和 `snapd` 的真实数据，不经过第三方服务。
@@ -56,6 +60,24 @@ Rust + GTK4 / libadwaita 原生应用，直接读 `dpkg` 和 `snapd` 的真实�
 
 ## 安装
 
+### 方式一：下载构建好的产物
+
+到 [Actions](https://github.com/877007021/pakmanager/actions/workflows/ci.yml) 里打开最近一次成功的
+「构建 x86_64 产物」运行，在页面底部的 **Artifacts** 下载 `pakmanager-x86_64-linux`。
+打标签发版后也可以直接从 [Releases](https://github.com/877007021/pakmanager/releases) 下载。
+
+CI 在 Ubuntu 24.04 上构建（GTK 4.14 / libadwaita 1.5，即本项目要求的最低运行库版本），
+因此产物在 24.04 及更新的发行版上都能直接运行。
+
+```bash
+tar -xzf pakmanager-x86_64-linux.tar.gz
+cd pakmanager-x86_64-linux
+sudo install -Dm755 pakmanager /usr/local/bin/pakmanager
+sudo install -Dm644 dev.nanh.PakManager.desktop /usr/share/applications/dev.nanh.PakManager.desktop
+```
+
+### 方式二：从源码构建
+
 ```bash
 # 依赖（一次性）
 sudo apt install libgtk-4-dev libadwaita-1-dev build-essential pkg-config
@@ -90,9 +112,14 @@ pakmanager --remove <包名> --clean   # 卸载并删除配置（不含 autoremo
 ## 开发
 
 ```bash
-cargo test          # 13 个测试：dpkg 解析、snap JSON、日期、卸载安全约束
+cargo test          # 14 个测试：dpkg 解析、snap JSON、日期、locale、卸载安全约束
+cargo clippy --all-targets -- -D warnings
+cargo fmt --check
 cargo run
 ```
+
+CI 会检查格式与 lints（警告即失败），并在 `C.UTF-8` 与 `zh_CN.UTF-8` 两种语言环境下各跑一遍测试
+——桌面文件的本地化名字是随 `LANG` 变化的，只测一种会漏掉问题。
 
 用自己的窗口截图做界面验证（不需要真实桌面会话）：
 
