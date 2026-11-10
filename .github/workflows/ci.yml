@@ -51,8 +51,18 @@ jobs:
           sudo apt-get install -y --no-install-recommends \
             libgtk-4-dev libadwaita-1-dev
 
-      - name: cargo test
+      # 在两种语言环境下各跑一遍：本地开发机常是 zh_CN，runner 默认是 C.UTF-8，
+      # 只测一种会漏掉「依赖 LANG 才通过」的测试。
+      - name: cargo test (C.UTF-8)
         run: cargo test --all-targets --verbose
+        env:
+          LANG: C.UTF-8
+          LC_ALL: C.UTF-8
+
+      - name: cargo test (zh_CN.UTF-8)
+        run: |
+          sudo locale-gen zh_CN.UTF-8
+          LANG=zh_CN.UTF-8 LC_ALL=zh_CN.UTF-8 cargo test --all-targets
 
   build:
     name: 构建 x86_64 产物

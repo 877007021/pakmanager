@@ -133,7 +133,18 @@ impl DesktopIndex {
 
 /// 解析 .desktop 文件。`locale` 用于挑 `Name[zh_CN]` 这类本地化字段。
 pub fn parse_desktop(text: &str, path: &str) -> Option<DesktopEntry> {
-    let locales = locale_candidates();
+    parse_desktop_with_locales(text, path, &locale_candidates())
+}
+
+/// 指定候选 locale 的解析版本。
+///
+/// 单独拆出来是为了让测试不依赖运行环境的 `LANG`：CI 上通常是 `C.UTF-8`，
+/// 桌面机上可能是 `zh_CN.UTF-8`，两者挑中的本地化名字不同。
+pub fn parse_desktop_with_locales(
+    text: &str,
+    path: &str,
+    locales: &[String],
+) -> Option<DesktopEntry> {
     let mut entry = DesktopEntry {
         path: path.to_string(),
         ..Default::default()
@@ -184,13 +195,13 @@ pub fn parse_desktop(text: &str, path: &str) -> Option<DesktopEntry> {
         }
     }
 
-    for locale in &locales {
+    for locale in locales {
         if let Some(name) = localized_names.get(locale) {
             entry.local_name = Some(name.clone());
             break;
         }
     }
-    for locale in &locales {
+    for locale in locales {
         if let Some(comment) = localized_comments.get(locale) {
             entry.comment = Some(comment.clone());
             break;
@@ -259,14 +270,31 @@ fn exec_available(exec: &str) -> bool {
 mod tests {
     use super::*;
 
+    const NAUTILUS: &str = "[Desktop Entry]\nType=Application\nName=Files\nName[zh_CN]=文件\nComment=Access files\nComment[zh_CN]=访问文件\nExec=nautilus --new-window %U\nIcon=org.gnome.Nautilus\n";
+
     #[test]
-    fn parses_chinese_name() {
-        let text = "[Desktop Entry]\nType=Application\nName=Files\nName[zh_CN]=文件\nComment=Access files\nExec=nautilus --new-window %U\nIcon=org.gnome.Nautilus\n";
-        let entry =
-            parse_desktop(text, "/usr/share/applications/org.gnome.Nautilus.desktop").unwrap();
+    fn picks_chinese_name_when_locale_is_chinese() {
+        let locales = vec!["zh_CN".to_string(), "zh".to_string()];
+        let entry = parse_desktop_with_locales(
+            NAUTILUS,
+            "/usr/share/applications/org.gnome.Nautilus.desktop",
+            &locales,
+        )
+        .unwrap();
         assert_eq!(entry.name, "Files");
-        assert!(entry.local_name.is_some());
+        assert_eq!(entry.local_name.as_deref(), Some("文件"));
+        assert_eq!(entry.comment.as_deref(), Some("访问文件"));
         assert_eq!(entry.icon.as_deref(), Some("org.gnome.Nautilus"));
+    }
+
+    #[test]
+    fn falls_back_to_default_name_for_other_locales() {
+        // CI 常见环境：没有中文，应该用 .desktop 里的默认 Name。
+        let locales = vec!["C".to_string()];
+        let entry = parse_desktop_with_locales(NAUTILUS, "/tmp/x.desktop", &locales).unwrap();
+        assert_eq!(entry.name, "Files");
+        assert!(entry.local_name.is_none());
+        assert_eq!(entry.comment.as_deref(), Some("Access files"));
     }
 
     #[test]
