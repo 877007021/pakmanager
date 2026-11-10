@@ -70,7 +70,9 @@ impl Package {
 
     /// 搜索匹配：所有词都要命中。
     pub fn matches(&self, needle: &str) -> bool {
-        needle.split_whitespace().all(|word| self.keywords.contains(word))
+        needle
+            .split_whitespace()
+            .all(|word| self.keywords.contains(word))
     }
 
     pub fn size_human(&self) -> String {
@@ -119,9 +121,7 @@ pub fn section_label(section: &str) -> &'static str {
             "语言运行时"
         }
         "devel" | "vcs" => "开发工具",
-        "non-free" | "contrib" | "non-free-firmware" | "restricted" | "multiverse" => {
-            "第三方软件"
-        }
+        "non-free" | "contrib" | "non-free-firmware" | "restricted" | "multiverse" => "第三方软件",
         "localization" | "translations" => "语言包",
         "kde" | "xfce" | "gnome" | "x11" => "桌面环境",
         "admin" | "base" | "kernel" => "系统管理",

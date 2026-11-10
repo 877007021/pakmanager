@@ -13,13 +13,21 @@ use super::Group;
 const GROUPS: [(&str, &str, Group); 4] = [
     ("全部程序", "view-grid-symbolic", Group::All),
     ("桌面应用", "window-new-symbolic", Group::Desktop),
-    ("命令行与后台", "utilities-terminal-symbolic", Group::CommandLine),
+    (
+        "命令行与后台",
+        "utilities-terminal-symbolic",
+        Group::CommandLine,
+    ),
     ("库与依赖", "package-x-generic-symbolic", Group::Library),
 ];
 
 /// 来源入口。
 const SOURCES: [(&str, &str, Source); 2] = [
-    ("APT 系统包", "application-x-executable-symbolic", Source::Apt),
+    (
+        "APT 系统包",
+        "application-x-executable-symbolic",
+        Source::Apt,
+    ),
     ("Snap 应用", "package-x-generic-symbolic", Source::Snap),
 ];
 
@@ -144,10 +152,7 @@ impl Sidebar {
             if index < 0 {
                 return;
             }
-            let entry_index = entries
-                .borrow()
-                .iter()
-                .position(|entry| entry.row == *row);
+            let entry_index = entries.borrow().iter().position(|entry| entry.row == *row);
             let Some(entry_index) = entry_index else {
                 return;
             };
@@ -173,7 +178,8 @@ impl Sidebar {
         self.category_list.remove_all();
         self.categories_box.set_visible(!categories.is_empty());
         let mut entries = self.entries.borrow_mut();
-        entries.retain(|entry| entry.row.parent().as_ref() != Some(self.category_list.upcast_ref()));
+        entries
+            .retain(|entry| entry.row.parent().as_ref() != Some(self.category_list.upcast_ref()));
         for (category, count) in categories {
             let row = build_row(&format!("{category} ({count})"), "tag-symbolic");
             self.category_list.append(&row);

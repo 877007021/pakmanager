@@ -47,13 +47,20 @@ fn query_snapd() -> Result<Vec<Package>, String> {
 }
 
 fn find_body(raw: &[u8]) -> Option<usize> {
-    raw.windows(4).position(|window| window == b"\r\n\r\n").map(|pos| pos + 4)
+    raw.windows(4)
+        .position(|window| window == b"\r\n\r\n")
+        .map(|pos| pos + 4)
 }
 
 fn parse_snapd_json(body: &str) -> Result<Vec<Package>, String> {
     let value: serde_json::Value =
         serde_json::from_str(body).map_err(|err| format!("解析 snapd JSON 失败：{err}"))?;
-    if value.get("status-code").and_then(|v| v.as_i64()).unwrap_or(200) != 200 {
+    if value
+        .get("status-code")
+        .and_then(|v| v.as_i64())
+        .unwrap_or(200)
+        != 200
+    {
         let message = value
             .get("result")
             .and_then(|r| r.get("message"))
@@ -72,7 +79,11 @@ fn parse_snapd_json(body: &str) -> Result<Vec<Package>, String> {
             continue;
         }
         let snap_type = item.get("type").and_then(|v| v.as_str()).unwrap_or("app");
-        let summary = item.get("summary").and_then(|v| v.as_str()).unwrap_or("").to_string();
+        let summary = item
+            .get("summary")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
         let description = item
             .get("description")
             .and_then(|v| v.as_str())
@@ -90,8 +101,15 @@ fn parse_snapd_json(body: &str) -> Result<Vec<Package>, String> {
             .and_then(|v| v.as_str())
             .unwrap_or("")
             .to_string();
-        let version = item.get("version").and_then(|v| v.as_str()).unwrap_or("").to_string();
-        let installed_size = item.get("installed-size").and_then(|v| v.as_i64()).unwrap_or(0);
+        let version = item
+            .get("version")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+        let installed_size = item
+            .get("installed-size")
+            .and_then(|v| v.as_i64())
+            .unwrap_or(0);
         let installed_at = item
             .get("install-date")
             .and_then(|v| v.as_str())
@@ -185,7 +203,11 @@ fn parse_offset(rest: &str) -> Option<i64> {
         return Some(0);
     }
     let sign = if rest.starts_with('-') { -1 } else { 1 };
-    let digits: String = rest.chars().filter(|c| c.is_ascii_digit()).take(4).collect();
+    let digits: String = rest
+        .chars()
+        .filter(|c| c.is_ascii_digit())
+        .take(4)
+        .collect();
     if digits.len() < 4 {
         return None;
     }

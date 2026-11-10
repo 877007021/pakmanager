@@ -1,0 +1,114 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+  # 在 CI 里把警告当错误，避免 lints 慢慢腐蚀
+  RUSTFLAGS: -D warnings
+
+jobs:
+  lint:
+    name: 格式与 lints
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 安装 rustfmt 与 clippy
+        run: rustup component add rustfmt clippy
+
+      - name: 缓存依赖
+        uses: Swatinem/rust-cache@v2
+
+      - name: cargo fmt
+        run: cargo fmt --all --check
+
+      - name: 安装 GTK 开发库
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libgtk-4-dev libadwaita-1-dev
+
+      - name: cargo clippy
+        run: cargo clippy --all-targets -- -D warnings
+
+  test:
+    name: 测试
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 缓存依赖
+        uses: Swatinem/rust-cache@v2
+
+      - name: 安装 GTK 开发库
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libgtk-4-dev libadwaita-1-dev
+
+      - name: cargo test
+        run: cargo test --all-targets --verbose
+
+  build:
+    name: 构建 x86_64 产物
+    needs: [test]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 缓存依赖
+        uses: Swatinem/rust-cache@v2
+
+      - name: 安装 GTK 开发库
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libgtk-4-dev libadwaita-1-dev
+
+      - name: 记录工具链版本
+        run: |
+          rustc -V
+          echo "GTK: $(pkg-config --modversion gtk4)"
+          echo "libadwaita: $(pkg-config --modversion libadwaita-1)"
+
+      - name: cargo build --release
+        run: cargo build --release --locked
+
+      - name: 冒烟测试（在虚拟显示里真的启动一次）
+        run: |
+          sudo apt-get install -y --no-install-recommends xvfb
+          set +e
+          Xvfb :99 -screen 0 1280x800x24 &
+          sleep 2
+          DISPLAY=:99 GDK_BACKEND=x11 ./target/release/pakmanager --help
+          rc=$?
+          set -e
+          if [ $rc -ne 0 ]; then
+            echo "::error::--help 退出码 $rc"
+            exit $rc
+          fi
+
+      - name: 打包
+        run: |
+          mkdir -p dist
+          install -m755 target/release/pakmanager dist/pakmanager
+          install -m644 data/dev.nanh.PakManager.desktop dist/dev.nanh.PakManager.desktop
+          install -m644 README.md LICENSE dist/
+          tar -czf pakmanager-x86_64-linux.tar.gz -C dist .
+          sha256sum pakmanager-x86_64-linux.tar.gz > pakmanager-x86_64-linux.tar.gz.sha256
+          ls -lh pakmanager-x86_64-linux.tar.gz
+          cat pakmanager-x86_64-linux.tar.gz.sha256
+
+      - name: 上传产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: pakmanager-x86_64-linux
+          path: |
+            pakmanager-x86_64-linux.tar.gz
+            pakmanager-x86_64-linux.tar.gz.sha256
+          if-no-files-found: error

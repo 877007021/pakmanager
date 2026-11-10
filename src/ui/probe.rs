@@ -60,6 +60,9 @@ pub fn capture(widget: &impl IsA<gtk::Widget>, name: &str) -> Result<PathBuf, St
     }
 }
 
+/// 一个「先改状态、下一拍再截图」的动作。
+type StepAction = Box<dyn Fn(&Ui)>;
+
 /// 依次抓取几个界面状态。
 ///
 /// 每次「改状态」和「截图」分在两个主循环节拍里完成：行视图是异步惰性布局的，
@@ -67,14 +70,9 @@ pub fn capture(widget: &impl IsA<gtk::Widget>, name: &str) -> Result<PathBuf, St
 pub fn run(ui: &std::rc::Rc<Ui>) {
     let ui = ui.clone();
     // 截图统一用浅色主题，便于对比设计稿；正常运行时跟随系统设置。
-    if let Some(manager) = adw::StyleManager::default()
-        .downcast::<adw::StyleManager>()
-        .ok()
-    {
-        manager.set_color_scheme(adw::ColorScheme::ForceLight);
-    }
+    adw::StyleManager::default().set_color_scheme(adw::ColorScheme::ForceLight);
     let mut phase = 0usize;
-    let mut pending_action: Option<Box<dyn Fn(&Ui)>> = Some(Box::new(|ui| {
+    let mut pending_action: Option<StepAction> = Some(Box::new(|ui| {
         ui.selection.set_selected(0);
     }));
     let mut report: Vec<String> = Vec::new();
@@ -184,7 +182,11 @@ fn detail_dump(ui: &Ui) -> String {
 /// 布局度量：用来核对行高、栏宽这些数值是否符合设计密度。
 pub fn metrics(ui: &Ui) -> String {
     let mut parts: Vec<String> = Vec::new();
-    parts.push(format!("window={}x{}", ui.window.width(), ui.window.height()));
+    parts.push(format!(
+        "window={}x{}",
+        ui.window.width(),
+        ui.window.height()
+    ));
     parts.push(format!("rows={}", ui.sort_model.n_items()));
     let mut child = ui.list_view.first_child();
     let mut rows = 0;
@@ -209,13 +211,28 @@ pub fn geometry(ui: &Ui) -> String {
     fn rect(widget: &gtk::Widget) -> String {
         #[allow(deprecated)]
         let alloc = widget.allocation();
-        format!("{}x{}+{}+{}", alloc.width(), alloc.height(), alloc.x(), alloc.y())
+        format!(
+            "{}x{}+{}+{}",
+            alloc.width(),
+            alloc.height(),
+            alloc.x(),
+            alloc.y()
+        )
     }
     let mut parts = vec![
         format!("window={}", rect(ui.window.upcast_ref::<gtk::Widget>())),
-        format!("sidebar={}", rect(ui.sidebar.root.upcast_ref::<gtk::Widget>())),
-        format!("list_view={}", rect(ui.list_view.upcast_ref::<gtk::Widget>())),
-        format!("detail={}", rect(ui.detail.root.upcast_ref::<gtk::Widget>())),
+        format!(
+            "sidebar={}",
+            rect(ui.sidebar.root.upcast_ref::<gtk::Widget>())
+        ),
+        format!(
+            "list_view={}",
+            rect(ui.list_view.upcast_ref::<gtk::Widget>())
+        ),
+        format!(
+            "detail={}",
+            rect(ui.detail.root.upcast_ref::<gtk::Widget>())
+        ),
         format!("search={}", rect(ui.search.upcast_ref::<gtk::Widget>())),
     ];
     // 列表里第一行的实际位置

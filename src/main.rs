@@ -197,7 +197,11 @@ mod cli {
             .count();
         let snap = result.packages.len() - apt;
         let protected = result.packages.iter().filter(|p| p.protected).count();
-        let desktop = result.packages.iter().filter(|p| p.is_desktop_app()).count();
+        let desktop = result
+            .packages
+            .iter()
+            .filter(|p| p.is_desktop_app())
+            .count();
         let with_icon = result.packages.iter().filter(|p| p.icon.is_some()).count();
         let total: u64 = result.packages.iter().map(|p| p.size_bytes).sum();
 

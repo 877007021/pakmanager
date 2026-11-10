@@ -49,9 +49,11 @@ pub fn scan(progress: &Progress) -> ScanResult {
     desktop.attach(&mut result.packages);
     desktop.attach(&mut result.leftovers);
 
-    result
-        .packages
-        .sort_by(|a, b| a.display_name.to_lowercase().cmp(&b.display_name.to_lowercase()));
+    result.packages.sort_by(|a, b| {
+        a.display_name
+            .to_lowercase()
+            .cmp(&b.display_name.to_lowercase())
+    });
     result.leftovers.sort_by(|a, b| a.name.cmp(&b.name));
     result
 }

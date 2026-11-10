@@ -13,7 +13,11 @@ use super::Ui;
 /// 弹出卸载确认对话框：先预演卸载、展示真实影响面，再执行。
 pub fn confirm_remove(ui: &Rc<Ui>, package: PackageRef, anchor: &gtk::Button) {
     let is_leftover = package.leftover;
-    let action = if is_leftover { "清理配置" } else { "卸载" };
+    let action = if is_leftover {
+        "清理配置"
+    } else {
+        "卸载"
+    };
 
     let dialog = adw::AlertDialog::new(
         Some(&format!("{action} {}？", package.display_name)),
@@ -35,8 +39,9 @@ pub fn confirm_remove(ui: &Rc<Ui>, package: PackageRef, anchor: &gtk::Button) {
     });
     let dialog_for_plan = dialog.clone();
     let package_for_plan = package.clone();
-    glib::timeout_add_local(std::time::Duration::from_millis(60), move || {
-        match receiver.try_recv() {
+    glib::timeout_add_local(
+        std::time::Duration::from_millis(60),
+        move || match receiver.try_recv() {
             Ok(plan) => {
                 let body = describe_plan(&package_for_plan, &plan);
                 dialog_for_plan.set_body(&body);
@@ -44,20 +49,29 @@ pub fn confirm_remove(ui: &Rc<Ui>, package: PackageRef, anchor: &gtk::Button) {
             }
             Err(std::sync::mpsc::TryRecvError::Empty) => glib::ControlFlow::Continue,
             Err(std::sync::mpsc::TryRecvError::Disconnected) => glib::ControlFlow::Break,
-        }
-    });
+        },
+    );
 
     let weak = Rc::downgrade(ui);
     let anchor_for_dialog = anchor.clone();
     let anchor_for_remove = anchor.clone();
-    dialog.choose(Some(&anchor_for_dialog), gio::Cancellable::NONE, move |response| {
-        let Some(ui) = weak.upgrade() else { return };
-        let response = response.as_str().to_string();
-        if response == "cancel" {
-            return;
-        }
-        run_remove(&ui, package.clone(), response == "clean", &anchor_for_remove);
-    });
+    dialog.choose(
+        Some(&anchor_for_dialog),
+        gio::Cancellable::NONE,
+        move |response| {
+            let Some(ui) = weak.upgrade() else { return };
+            let response = response.as_str().to_string();
+            if response == "cancel" {
+                return;
+            }
+            run_remove(
+                &ui,
+                package.clone(),
+                response == "clean",
+                &anchor_for_remove,
+            );
+        },
+    );
 }
 
 /// 在文件管理器中打开这个包的安装目录（供详情面板的「位置」按钮使用）。
@@ -93,7 +107,11 @@ fn describe_plan(package: &Package, plan: &ops::Plan) -> String {
     parts.push(format!(
         "将卸载「{}」{}，释放约 {}。",
         package.name,
-        if package.auto_installed { "（自动安装的依赖）" } else { "" },
+        if package.auto_installed {
+            "（自动安装的依赖）"
+        } else {
+            ""
+        },
         human_bytes(package.size_bytes)
     ));
     let collateral = plan.collateral();
@@ -116,9 +134,22 @@ fn describe_plan(package: &Package, plan: &ops::Plan) -> String {
         ));
     }
     if !plan.reverse_deps.is_empty() {
-        let shown = plan.reverse_deps.iter().take(4).cloned().collect::<Vec<_>>().join("、");
-        let more = if plan.reverse_deps.len() > 4 { " 等" } else { "" };
-        parts.push(format!("有 {}{} 个已安装包依赖它，卸载可能影响它们。", shown, more));
+        let shown = plan
+            .reverse_deps
+            .iter()
+            .take(4)
+            .cloned()
+            .collect::<Vec<_>>()
+            .join("、");
+        let more = if plan.reverse_deps.len() > 4 {
+            " 等"
+        } else {
+            ""
+        };
+        parts.push(format!(
+            "有 {}{} 个已安装包依赖它，卸载可能影响它们。",
+            shown, more
+        ));
     }
     if collateral == 0 && plan.auto_removed.is_empty() && plan.reverse_deps.is_empty() {
         parts.push("不会影响其它已安装的包。".to_string());
@@ -144,8 +175,9 @@ pub fn run_remove(ui: &Rc<Ui>, package: PackageRef, clean: bool, anchor: &gtk::B
     });
 
     let weak = Rc::downgrade(ui);
-    glib::timeout_add_local(std::time::Duration::from_millis(80), move || {
-        match receiver.try_recv() {
+    glib::timeout_add_local(
+        std::time::Duration::from_millis(80),
+        move || match receiver.try_recv() {
             Ok(output) => {
                 toast.dismiss();
                 let Some(ui) = weak.upgrade() else {
@@ -172,8 +204,8 @@ pub fn run_remove(ui: &Rc<Ui>, package: PackageRef, clean: bool, anchor: &gtk::B
             }
             Err(std::sync::mpsc::TryRecvError::Empty) => glib::ControlFlow::Continue,
             Err(std::sync::mpsc::TryRecvError::Disconnected) => glib::ControlFlow::Break,
-        }
-    });
+        },
+    );
 }
 
 /// 一键清理所有残留配置（dpkg 状态 rc）。
@@ -207,40 +239,45 @@ pub fn clean_leftovers(ui: &Rc<Ui>) {
     dialog.set_response_appearance("clean", adw::ResponseAppearance::Destructive);
     dialog.set_default_response(Some("cancel"));
     let weak = Rc::downgrade(ui);
-    dialog.choose(Some(&ui.window.clone()), gio::Cancellable::NONE, move |response| {
-        if response.as_str() != "clean" {
-            return;
-        }
-        let Some(ui) = weak.upgrade() else { return };
-        let toast = adw::Toast::new(&format!("正在清理 {} 个残留配置…", names.len()));
-        toast.set_timeout(0);
-        ui.toast.add_toast(toast.clone());
-        let (sender, receiver) = std::sync::mpsc::channel();
-        let names = names.clone();
-        std::thread::spawn(move || {
-            let _ = sender.send(ops::purge_leftovers(&names));
-        });
-        let weak = Rc::downgrade(&ui);
-        glib::timeout_add_local(std::time::Duration::from_millis(100), move || {
-            match receiver.try_recv() {
-                Ok(output) => {
-                    toast.dismiss();
-                    if let Some(ui) = weak.upgrade() {
-                        if output.success {
-                            ui.toast.add_toast(adw::Toast::new("残留配置已清理"));
-                        } else {
-                            let toast =
-                                adw::Toast::new(&format!("清理失败：{}", output.error_text()));
-                            toast.set_timeout(8);
-                            ui.toast.add_toast(toast);
-                        }
-                        super::reload(&ui);
-                    }
-                    glib::ControlFlow::Break
-                }
-                Err(std::sync::mpsc::TryRecvError::Empty) => glib::ControlFlow::Continue,
-                Err(std::sync::mpsc::TryRecvError::Disconnected) => glib::ControlFlow::Break,
+    dialog.choose(
+        Some(&ui.window.clone()),
+        gio::Cancellable::NONE,
+        move |response| {
+            if response.as_str() != "clean" {
+                return;
             }
-        });
-    });
+            let Some(ui) = weak.upgrade() else { return };
+            let toast = adw::Toast::new(&format!("正在清理 {} 个残留配置…", names.len()));
+            toast.set_timeout(0);
+            ui.toast.add_toast(toast.clone());
+            let (sender, receiver) = std::sync::mpsc::channel();
+            let names = names.clone();
+            std::thread::spawn(move || {
+                let _ = sender.send(ops::purge_leftovers(&names));
+            });
+            let weak = Rc::downgrade(&ui);
+            glib::timeout_add_local(
+                std::time::Duration::from_millis(100),
+                move || match receiver.try_recv() {
+                    Ok(output) => {
+                        toast.dismiss();
+                        if let Some(ui) = weak.upgrade() {
+                            if output.success {
+                                ui.toast.add_toast(adw::Toast::new("残留配置已清理"));
+                            } else {
+                                let toast =
+                                    adw::Toast::new(&format!("清理失败：{}", output.error_text()));
+                                toast.set_timeout(8);
+                                ui.toast.add_toast(toast);
+                            }
+                            super::reload(&ui);
+                        }
+                        glib::ControlFlow::Break
+                    }
+                    Err(std::sync::mpsc::TryRecvError::Empty) => glib::ControlFlow::Continue,
+                    Err(std::sync::mpsc::TryRecvError::Disconnected) => glib::ControlFlow::Break,
+                },
+            );
+        },
+    );
 }

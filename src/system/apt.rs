@@ -44,7 +44,9 @@ pub fn parse_status(raw: &str) -> Vec<Stanza> {
     for line in raw.lines() {
         if line.trim().is_empty() {
             if !fields.is_empty() {
-                stanzas.push(Stanza { fields: std::mem::take(&mut fields) });
+                stanzas.push(Stanza {
+                    fields: std::mem::take(&mut fields),
+                });
             }
             last_key = None;
             continue;
@@ -84,7 +86,11 @@ pub fn parse_extended_states(raw: &str) -> HashSet<String> {
 
 /// `Installed-Size` 的语义是 KiB。
 fn installed_size_kib(stanza: &Stanza) -> u64 {
-    stanza.get("Installed-Size").trim().parse::<u64>().unwrap_or(0)
+    stanza
+        .get("Installed-Size")
+        .trim()
+        .parse::<u64>()
+        .unwrap_or(0)
 }
 
 /// 读取 `description.list` 的修改时间，作为「安装时间」的近似值。
@@ -101,7 +107,11 @@ fn split_description(raw: &str) -> (String, String) {
     let mut lines = raw.split('\n');
     let summary = lines.next().unwrap_or("").trim().to_string();
     let body: Vec<&str> = lines
-        .map(|line| line.strip_prefix('.').map(|l| if l.is_empty() { "" } else { l.trim() }).unwrap_or(line.trim()))
+        .map(|line| {
+            line.strip_prefix('.')
+                .map(|l| if l.is_empty() { "" } else { l.trim() })
+                .unwrap_or(line.trim())
+        })
         .collect();
     (summary, body.join("\n").trim().to_string())
 }
@@ -130,7 +140,10 @@ fn desktop_owners() -> HashMap<String, Vec<String>> {
                 && (line.starts_with("/usr/share/applications/")
                     || line.starts_with("/usr/local/share/applications/"))
             {
-                owners.entry(pkg.clone()).or_default().push(line.to_string());
+                owners
+                    .entry(pkg.clone())
+                    .or_default()
+                    .push(line.to_string());
             }
         }
     }
@@ -140,7 +153,8 @@ fn desktop_owners() -> HashMap<String, Vec<String>> {
 /// 执行一次完整的 APT 扫描。
 pub fn scan() -> Result<AptScan, String> {
     let mut result = AptScan::default();
-    let raw = fs::read_to_string(DPKG_STATUS).map_err(|err| format!("读取 {DPKG_STATUS} 失败：{err}"))?;
+    let raw =
+        fs::read_to_string(DPKG_STATUS).map_err(|err| format!("读取 {DPKG_STATUS} 失败：{err}"))?;
     let stanzas = parse_status(&raw);
 
     let auto_installed = fs::read_to_string(APT_EXTENDED_STATES)
@@ -169,7 +183,10 @@ pub fn scan() -> Result<AptScan, String> {
         let protected = essential
             || priority == "required"
             || stanza.get("Protected") == "yes"
-            || matches!(name.as_str(), "dpkg" | "apt" | "libc6" | "systemd" | "snapd");
+            || matches!(
+                name.as_str(),
+                "dpkg" | "apt" | "libc6" | "systemd" | "snapd"
+            );
 
         let mut package = Package {
             id: format!("apt:{name}"),
@@ -188,7 +205,9 @@ pub fn scan() -> Result<AptScan, String> {
             leftover: false,
             maintainer: stanza.get("Maintainer").to_string(),
             icon: None,
-            desktop_file: desktop_owners.get(&name).and_then(|files| files.first().cloned()),
+            desktop_file: desktop_owners
+                .get(&name)
+                .and_then(|files| files.first().cloned()),
             publisher: String::new(),
             confinement: String::new(),
             keywords: format!("{name} {summary} {section}").to_lowercase(),
@@ -258,7 +277,14 @@ pub fn reverse_dependencies(pkg: &str) -> Vec<String> {
         if depends
             .split(',')
             .filter_map(|clause| clause.split('|').next())
-            .map(|clause| clause.trim().split(['(', ' ', '[']).next().unwrap_or("").trim())
+            .map(|clause| {
+                clause
+                    .trim()
+                    .split(['(', ' ', '['])
+                    .next()
+                    .unwrap_or("")
+                    .trim()
+            })
             .any(|dep| dep.split(':').next() == Some(pkg))
         {
             users.push(name.to_string());
@@ -288,7 +314,10 @@ mod tests {
         let (summary, body) = split_description(stanzas[0].get("Description"));
         assert_eq!(summary, "GNU Bourne Again SHell");
         assert!(body.starts_with("Bash is an sh-compatible"));
-        assert!(body.contains("\n\nThis is a second paragraph."), "got: {body:?}");
+        assert!(
+            body.contains("\n\nThis is a second paragraph."),
+            "got: {body:?}"
+        );
     }
 
     #[test]

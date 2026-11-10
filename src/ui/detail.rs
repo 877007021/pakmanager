@@ -8,7 +8,6 @@ use crate::model::{section_label, Package, PackageRef};
 use crate::system::ops;
 use crate::util;
 
-
 /// 详情面板。
 pub struct DetailPane {
     pub root: gtk::Box,
@@ -252,7 +251,11 @@ impl DetailPane {
         let text = if package.description.is_empty() {
             package.summary.clone()
         } else {
-            format!("{}\n\n{}", package.summary, util::ellipsize(&package.description, 480))
+            format!(
+                "{}\n\n{}",
+                package.summary,
+                util::ellipsize(&package.description, 480)
+            )
         };
         self.description.set_text(text.trim());
 
@@ -392,7 +395,11 @@ fn populate_extras(container: &gtk::Box, package: &Package) {
             if files.is_empty() {
                 "没有读取到文件清单（可能需要 root 权限）".to_string()
             } else {
-                format!("共 {} 个文件：\n{}", files.len(), util::ellipsize(&files.join("\n"), 4000))
+                format!(
+                    "共 {} 个文件：\n{}",
+                    files.len(),
+                    util::ellipsize(&files.join("\n"), 4000)
+                )
             }
         }));
     }

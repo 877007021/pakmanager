@@ -5,7 +5,12 @@ use glib::DateTime;
 /// unix 秒 → `2026-08-26`（本地时区）。
 pub fn format_date(ts: i64) -> String {
     match DateTime::from_unix_local(ts) {
-        Ok(dt) => format!("{:04}-{:02}-{:02}", dt.year(), dt.month(), dt.day_of_month()),
+        Ok(dt) => format!(
+            "{:04}-{:02}-{:02}",
+            dt.year(),
+            dt.month(),
+            dt.day_of_month()
+        ),
         Err(_) => "—".to_string(),
     }
 }

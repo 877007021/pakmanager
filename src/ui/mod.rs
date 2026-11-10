@@ -385,12 +385,13 @@ fn wire_events(ui: &Rc<Ui>) {
             }
             let filters = filters.clone();
             let weak = weak.clone();
-            let id = glib::timeout_add_local_once(std::time::Duration::from_millis(180), move || {
-                filters.borrow_mut().query = text;
-                if let Some(ui) = weak.upgrade() {
-                    refresh_filter(&ui);
-                }
-            });
+            let id =
+                glib::timeout_add_local_once(std::time::Duration::from_millis(180), move || {
+                    filters.borrow_mut().query = text;
+                    if let Some(ui) = weak.upgrade() {
+                        refresh_filter(&ui);
+                    }
+                });
             pending.set(Some(id));
             // timeout_add_local_once 返回的 SourceId 已自动移除，这里只做去重标记。
             pending.set(None);
@@ -422,8 +423,12 @@ fn wire_events(ui: &Rc<Ui>) {
 
 /// 筛选条件变化后重建列表。
 pub fn refresh_filter(ui: &Rc<Ui>) {
-    ui.filter_model.filter().and_downcast::<gtk::CustomFilter>().map(|filter| filter.changed(gtk::FilterChange::Different));
-    ui.sort_model.sorter().and_downcast::<gtk::CustomSorter>().map(|sorter| sorter.changed(gtk::SorterChange::Different));
+    if let Some(filter) = ui.filter_model.filter().and_downcast::<gtk::CustomFilter>() {
+        filter.changed(gtk::FilterChange::Different);
+    }
+    if let Some(sorter) = ui.sort_model.sorter().and_downcast::<gtk::CustomSorter>() {
+        sorter.changed(gtk::SorterChange::Different);
+    }
     update_counts(ui);
 }
 
@@ -452,8 +457,7 @@ pub fn update_counts(ui: &Rc<Ui>) {
 
     ui.list_title.set_text(&label);
     if extra.is_empty() {
-        ui.list_subtitle
-            .set_text(&format!("{total} 个条目"));
+        ui.list_subtitle.set_text(&format!("{total} 个条目"));
     } else {
         ui.list_subtitle
             .set_text(&format!("{total} 个条目 · {}", extra.join(" · ")));
@@ -520,7 +524,8 @@ pub fn apply_scan(ui: &Rc<Ui>, result: ScanResult) {
     ui.store.extend_from_slice(&objects);
 
     // 分类连同数量一起给侧栏，排序按使用频率而不是字母序。
-    let mut counts: std::collections::HashMap<&'static str, usize> = std::collections::HashMap::new();
+    let mut counts: std::collections::HashMap<&'static str, usize> =
+        std::collections::HashMap::new();
     for package in result.packages.iter().filter(|package| !package.protected) {
         let label = crate::model::section_label(&package.section);
         if label == "库与依赖" && package.auto_installed {

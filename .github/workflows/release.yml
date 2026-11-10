@@ -1,0 +1,78 @@
+name: Release
+
+# 推送 v* 标签时构建并发布产物；也可以在网页上手动触发。
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: -D warnings
+
+jobs:
+  release:
+    name: 构建并发布
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 缓存依赖
+        uses: Swatinem/rust-cache@v2
+
+      - name: 安装 GTK 开发库
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libgtk-4-dev libadwaita-1-dev xvfb
+
+      - name: 记录构建环境
+        run: |
+          rustc -V
+          echo "GTK: $(pkg-config --modversion gtk4)"
+          echo "libadwaita: $(pkg-config --modversion libadwaita-1)"
+          echo "glibc: $(ldd --version | head -1)"
+
+      - name: 构建
+        run: cargo build --release --locked
+
+      - name: 冒烟测试
+        run: |
+          Xvfb :99 -screen 0 1280x800x24 &
+          sleep 2
+          DISPLAY=:99 GDK_BACKEND=x11 ./target/release/pakmanager --help > /dev/null
+          echo "启动检查通过"
+
+      - name: 打包
+        id: pack
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          if [ -z "$VERSION" ] || [ "$VERSION" = "$GITHUB_REF_NAME" ]; then
+            VERSION="$(grep -m1 '^version' Cargo.toml | cut -d'"' -f2)"
+          fi
+          NAME="pakmanager-${VERSION}-x86_64-linux"
+          mkdir -p "dist/$NAME"
+          install -m755 target/release/pakmanager "dist/$NAME/pakmanager"
+          install -m644 data/dev.nanh.PakManager.desktop "dist/$NAME/dev.nanh.PakManager.desktop"
+          install -m644 README.md LICENSE "dist/$NAME/"
+          install -m644 data/安装说明.txt "dist/$NAME/"
+          tar -czf "dist/$NAME.tar.gz" -C dist "$NAME"
+          (cd dist && sha256sum "$NAME.tar.gz" > "$NAME.tar.gz.sha256")
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+          ls -lh "dist/$NAME.tar.gz"
+
+      - name: 发布
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/${{ steps.pack.outputs.name }}.tar.gz
+            dist/${{ steps.pack.outputs.name }}.tar.gz.sha256
+          generate_release_notes: true
+          body: |
+            构建于 Ubuntu 24.04（GTK 4.14 / libadwaita 1.5，最低要求的运行库版本，
+            因此可在 24.04 及更新的发行版上直接运行）。
+
+            安装步骤见压缩包内的「安装说明.txt」。

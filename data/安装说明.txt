@@ -1,0 +1,19 @@
+安装
+----
+
+1. 安装运行时依赖（GTK 4.14+ 与 libadwaita 1.5+）：
+
+     sudo apt install libgtk-4-1 libadwaita-1-0
+
+2. 安装程序与桌面入口：
+
+     sudo install -Dm755 pakmanager /usr/local/bin/pakmanager
+     sudo install -Dm644 dev.nanh.PakManager.desktop /usr/share/applications/dev.nanh.PakManager.desktop
+
+3. 从应用菜单打开「程序管家」，或运行 pakmanager。
+
+说明
+----
+
+卸载需要 root 权限，本程序使用 sudo -n（非交互）。
+若当前账号未配置免密 sudo，卸载会失败并提示原因，不会挂起等待输入。

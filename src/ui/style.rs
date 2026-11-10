@@ -26,7 +26,10 @@ pub fn install() {
     let provider = gtk::CssProvider::new();
     // 颜色集中写在 tokens 里，运行时替换进样式表，避免两处维护。
     let sheet = STYLESHEET
-        .replace("@ROW_HEIGHT@", &(tokens::DENSITY as i32 * 5 + 4).to_string())
+        .replace(
+            "@ROW_HEIGHT@",
+            &(tokens::DENSITY as i32 * 5 + 4).to_string(),
+        )
         .replace("@PRIMARY_DARK@", tokens::PRIMARY_DARK)
         .replace("@PRIMARY@", tokens::PRIMARY)
         .replace("@DESTRUCTIVE@", tokens::DESTRUCTIVE);

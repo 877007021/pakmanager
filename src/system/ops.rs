@@ -221,7 +221,6 @@ pub fn open_in_files(path: &str) -> Result<(), String> {
         .map_err(|err| format!("无法打开文件管理器：{err}"))
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -39,7 +39,10 @@ impl DesktopIndex {
         if let Some(data_home) = std::env::var_os("XDG_DATA_HOME") {
             dirs.push(format!("{}/applications", data_home.to_string_lossy()));
         } else if let Some(home) = std::env::var_os("HOME") {
-            dirs.push(format!("{}/.local/share/applications", home.to_string_lossy()));
+            dirs.push(format!(
+                "{}/.local/share/applications",
+                home.to_string_lossy()
+            ));
         }
 
         for dir in dirs {
@@ -111,7 +114,10 @@ impl DesktopIndex {
                 package.icon = entry.icon.clone();
             }
             // 有本地化名字的桌面程序，用它的名字更符合「已安装的程序」这个视角。
-            let name = entry.local_name.clone().unwrap_or_else(|| entry.name.clone());
+            let name = entry
+                .local_name
+                .clone()
+                .unwrap_or_else(|| entry.name.clone());
             if !name.is_empty() {
                 package.display_name = name;
                 package.keywords = format!("{} {}", package.keywords, package.name).to_lowercase();
@@ -157,7 +163,10 @@ pub fn parse_desktop(text: &str, path: &str) -> Option<DesktopEntry> {
             localized_names.insert(locale.to_string(), value);
             continue;
         }
-        if let Some(locale) = key.strip_prefix("Comment[").and_then(|k| k.strip_suffix(']')) {
+        if let Some(locale) = key
+            .strip_prefix("Comment[")
+            .and_then(|k| k.strip_suffix(']'))
+        {
             localized_comments.insert(locale.to_string(), value);
             continue;
         }
@@ -167,11 +176,10 @@ pub fn parse_desktop(text: &str, path: &str) -> Option<DesktopEntry> {
             "Icon" => entry.icon = Some(value),
             "Exec" => entry.exec = Some(value),
             "NoDisplay" => entry.no_display = value == "true",
-            "Type" => {
-                if value != "Application" {
-                    return None;
-                }
-            }
+            "Type" => match value.as_str() {
+                "Application" => {}
+                _ => return None,
+            },
             _ => {}
         }
     }
@@ -254,7 +262,8 @@ mod tests {
     #[test]
     fn parses_chinese_name() {
         let text = "[Desktop Entry]\nType=Application\nName=Files\nName[zh_CN]=文件\nComment=Access files\nExec=nautilus --new-window %U\nIcon=org.gnome.Nautilus\n";
-        let entry = parse_desktop(text, "/usr/share/applications/org.gnome.Nautilus.desktop").unwrap();
+        let entry =
+            parse_desktop(text, "/usr/share/applications/org.gnome.Nautilus.desktop").unwrap();
         assert_eq!(entry.name, "Files");
         assert!(entry.local_name.is_some());
         assert_eq!(entry.icon.as_deref(), Some("org.gnome.Nautilus"));
