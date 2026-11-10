@@ -1,0 +1,15 @@
+[Desktop Entry]
+Type=Application
+Name=程序管家
+Name[zh_CN]=程序管家
+GenericName=程序管理器
+GenericName[zh_CN]=程序管理器
+Comment=管理这台电脑上已安装的程序：查看占用、搜索、安全卸载
+Comment[zh_CN]=管理这台电脑上已安装的程序：查看占用、搜索、安全卸载
+Exec=pakmanager
+Icon=package-x-generic
+Terminal=false
+Categories=System;PackageManager;
+Keywords=package;uninstall;apt;dpkg;snap;卸载;程序;软件;
+StartupNotify=true
+StartupWMClass=pakmanager

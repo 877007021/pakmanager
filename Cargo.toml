@@ -1,0 +1,21 @@
+[package]
+name = "pakmanager"
+version = "0.1.0"
+edition = "2021"
+description = "Linux 已安装程序管理器（APT + Snap），GTK4 / libadwaita"
+license = "MIT"
+
+[dependencies]
+gtk = { package = "gtk4", version = "0.11", features = ["v4_14"] }
+adw = { package = "libadwaita", version = "0.9", features = ["v1_5"] }
+glib = "0.22"
+gio = "0.22"
+serde_json = "1"
+
+[profile.release]
+lto = "thin"
+strip = true
+opt-level = 2
+
+[profile.dev]
+opt-level = 1
